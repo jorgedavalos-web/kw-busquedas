@@ -448,12 +448,36 @@ function submitForm() {
   var today = new Date().toLocaleDateString('es-AR');
   var row = [today, formData.agente, formData.team||'', formData.tel, formData.prioridad, formData.operacion, formData.tipo, formData.zona, formData.barrios||'', formData.otras_zonas||'', formData.moneda||'USD', formData.presupuesto||'', formData.dorms||'---', formData.sup||'', formData.terreno||'', formData.tiene_prop||'No', formData.obs||'', formData.email||''];
   var params = new URLSearchParams({data: JSON.stringify({row: row})});
-  var img = new Image();
-  img.src = WEBHOOK + '?' + params.toString();
-  db.unshift({Fecha:today, Agente:formData.agente, Team:formData.team||'', Telefono:formData.tel, Prioridad:formData.prioridad, Operacion:formData.operacion, TipoPropiedad:formData.tipo, ZonaAmplia:formData.zona, BarriosEspecificos:formData.barrios||'', AceptaOtrasZonas:formData.otras_zonas||'', Moneda:formData.moneda||'USD', Presupuesto:formData.presupuesto||'', Dormitorios:formData.dorms||'---', SupCubierta:formData.sup||'', Terreno:formData.terreno||'', TienePropiedad:formData.tiene_prop||'No', Observaciones:formData.obs||'', Email:formData.email||''});
-  showToast('✔ Búsqueda guardada en Google Sheets');
-  setTimeout(function(){ switchTab('buscar'); }, 1200);
-  renderStats(); renderResults();
+  var url = WEBHOOK + '?' + params.toString();
+
+  function addLocal(){
+    db.unshift({Fecha:today, Agente:formData.agente, Team:formData.team||'', Telefono:formData.tel, Prioridad:formData.prioridad, Operacion:formData.operacion, TipoPropiedad:formData.tipo, ZonaAmplia:formData.zona, BarriosEspecificos:formData.barrios||'', AceptaOtrasZonas:formData.otras_zonas||'', Moneda:formData.moneda||'USD', Presupuesto:formData.presupuesto||'', Dormitorios:formData.dorms||'---', SupCubierta:formData.sup||'', Terreno:formData.terreno||'', TienePropiedad:formData.tiene_prop||'No', Observaciones:formData.obs||'', Email:formData.email||''});
+    showToast('✔ Búsqueda guardada en Google Sheets');
+    setTimeout(function(){ switchTab('buscar'); }, 1200);
+    renderStats(); renderResults();
+  }
+
+  // Intento 1: fetch GET (funciona en la mayoría de navegadores)
+  fetch(url, {method:'GET', mode:'no-cors'})
+    .then(function(){ addLocal(); })
+    .catch(function(){
+      // Intento 2: fetch POST no-cors
+      fetch(WEBHOOK, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: params.toString()
+      })
+      .then(function(){ addLocal(); })
+      .catch(function(){
+        // Intento 3: XMLHttpRequest como último recurso
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', url, true);
+        xhr.onloadend = function(){ addLocal(); };
+        xhr.onerror = function(){ addLocal(); }; // igual mostramos éxito local
+        xhr.send();
+      });
+    });
 }
 </script>
 </body>
