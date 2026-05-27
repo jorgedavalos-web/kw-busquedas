@@ -192,16 +192,55 @@ function openMail(to, subject, body){
 }
 function showToast(msg,dur=3000){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur);}
 
-function loadData(){
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTyTXoDe4x7zr4ImbycZMuQvdIJEpafpZFMX5a--AdMOOUK-g9KfqEPK5WNoBMGvSnIXygKivfutGxO/pub?gid=1091757697&single=true&output=csv';
+
+function parseCSV(text){
+  const lines=text.trim().split('\n');
+  if(lines.length<2)return[];
+  const headers=parseCSVLine(lines[0]);
+  return lines.slice(1).map(line=>{
+    const vals=parseCSVLine(line);
+    const obj={};
+    headers.forEach((h,i)=>obj[h.trim()]=(vals[i]||'').trim());
+    return obj;
+  }).filter(r=>r['Agente']&&r['Agente'].length>0);
+}
+function parseCSVLine(line){
+  const result=[],re=/("([^"]*(?:""[^"]*)*)"|[^,]*),?/g;
+  let m;
+  while((m=re.exec(line))!==null){
+    if(m[0]==='')break;
+    result.push(m[2]!==undefined?m[2].replace(/""/g,'"'):m[1]||'');
+  }
+  return result;
+}
+
+async function loadData(){
   document.getElementById('resultsGrid').innerHTML='<div class="loading"><span class="spinner"></span>Cargando búsquedas...</div>';
-  // Remove previous callback script if exists
-  const old = document.getElementById('jsonp_script');
-  if(old) old.remove();
-  // Define global callback
-  window._kwCallback = function(json){
-    try {
-      if(json.status!=='ok'||!json.data) throw new Error('Sin datos');
-      db = json.data.filter(r=>r['Agente']&&r['Agente'].trim()!=='').map(r=>({
+  try{
+    const resp=await fetch(CSV_URL+'&t='+Date.now());
+    const text=await resp.text();
+    const rows=parseCSV(text);
+    db=rows.map(r=>({
+      Fecha: r['Fecha']||'—',
+      Agente: r['Agente']||'',
+      Team: r['Team']||'',
+      Telefono: r['Telefono']||'',
+      Prioridad: r['Prioridad']||'',
+      Operacion: r['Operación']||'',
+      TipoPropiedad: r['Tipo de propiedad']||'',
+      ZonaAmplia: r['Zona amplia preferida']||'',
+      BarriosEspecificos: r['Barrios Especificos']||'',
+      AceptaOtrasZonas: r['¿Acepta otras zonas?']||'',
+      Moneda: r['Moneda']||'USD',
+      Presupuesto: r['Presupuesto']||'',
+      Dormitorios: r['Dorm. mínimos']||'',
+      SupCubierta: r['Sup. Cub. (m²)']||'',
+      Terreno: r['Terreno (m²)']||'',
+      TienePropiedad: r['Tiene propiedad']||'',
+      Observaciones: r['Detalles que no entran en los campos anteriores']||'',
+      Email: r['Dirección de correo electrónico']||''
+    }));
       Fecha: formatFecha(r['Fecha']),
       Agente: r['Agente'],
       Team: r['Team'],
@@ -219,26 +258,16 @@ function loadData(){
       Terreno: r['Terreno (m²)'],
       TienePropiedad: r['Tiene propiedad'],
       Observaciones: r['Detalles que no entran en los campos anteriores'],
-      Email: r['Dirección de correo electrónico']
+      Email: r['Dirección de correo electrónico']||''
     }));
     document.getElementById('lastUpdate').textContent='Actualizado: '+new Date().toLocaleTimeString('es-AR');
     renderStats();
     renderResults();
-    } catch(e){
-      console.error(e);
-      document.getElementById('resultsGrid').innerHTML='<div class="no-results">Error al cargar datos. Presioná Actualizar para reintentar.</div>';
-      document.getElementById('lastUpdate').textContent='Error de conexión';
-    }
-  };
-  // Inject JSONP script tag
-  const s = document.createElement('script');
-  s.id = 'jsonp_script';
-  s.src = WEBHOOK + '?callback=_kwCallback';
-  s.onerror = function(){
+  }catch(e){
+    console.error(e);
     document.getElementById('resultsGrid').innerHTML='<div class="no-results">Error al cargar datos. Presioná Actualizar para reintentar.</div>';
     document.getElementById('lastUpdate').textContent='Error de conexión';
-  };
-  document.body.appendChild(s);
+  }
 }
 
 function formatFecha(f){
