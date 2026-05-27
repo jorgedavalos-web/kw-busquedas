@@ -147,7 +147,7 @@ nav button.logout{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,
 </div>
 
 <script>
-var WEBHOOK = '/.netlify/functions/proxy';
+var WEBHOOK = 'https://script.google.com/macros/s/AKfycbyttoZkToP2_XPcZdppjmm8cZ2AxPzv4NmWEy5RUodpvFHGYWNVWw88Cve__DJ2XiqV/exec';
 var CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTyTXoDe4x7zr4ImbycZMuQvdIJEpafpZFMX5a--AdMOOUK-g9KfqEPK5WNoBMGvSnIXygKivfutGxO/pub?gid=1091757697&single=true&output=csv';
 
 var currentUser = null;
@@ -457,27 +457,16 @@ function submitForm() {
     renderStats(); renderResults();
   }
 
-  // Intento 1: fetch GET (funciona en la mayoría de navegadores)
-  fetch(url, {method:'GET', mode:'no-cors'})
-    .then(function(){ addLocal(); })
-    .catch(function(){
-      // Intento 2: fetch POST no-cors
-      fetch(WEBHOOK, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: params.toString()
-      })
-      .then(function(){ addLocal(); })
-      .catch(function(){
-        // Intento 3: XMLHttpRequest como último recurso
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', url, true);
-        xhr.onloadend = function(){ addLocal(); };
-        xhr.onerror = function(){ addLocal(); }; // igual mostramos éxito local
-        xhr.send();
-      });
-    });
+  var proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
+  fetch(proxyUrl, {method:'GET'})
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      // allorigins wraps response in {contents: "..."}
+      var resp = j.contents ? JSON.parse(j.contents) : j;
+      if(resp.status === 'ok') addLocal();
+      else addLocal(); // guardamos local igual
+    })
+    .catch(function(){ addLocal(); });
 }
 </script>
 </body>
