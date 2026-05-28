@@ -194,45 +194,29 @@ function mapRow(r){
   };
 }
 
-// LOAD DATA — intenta 3 métodos en orden
+// LOAD DATA via JSONP — evita CORS completamente
 function loadData(){
   document.getElementById('resultsGrid').innerHTML='<div class="loading"><span class="spinner"></span>Cargando búsquedas...</div>';
-  // Método 1: Apps Script directo (funciona en algunos navegadores)
-  fetch(SHEET_SCRIPT)
-    .then(function(r){return r.json();})
-    .then(function(j){
+  // Limpiar script anterior
+  var old=document.getElementById('jsonp_load');
+  if(old)old.remove();
+  // Timeout de 8 segundos
+  var timeout=setTimeout(function(){onLoadError();},8000);
+  // Callback global
+  window._kwLoad=function(j){
+    clearTimeout(timeout);
+    try{
       if(j.status==='ok'&&j.data&&j.data.length){
-        db=j.data.filter(function(r){return r['Agente']&&r['Agente'].trim()!=='';}).map(mapRow);
+        db=j.data.map(mapRow).filter(function(r){return r.Agente&&r.Agente.trim()!=='';});
         onDataLoaded();
-      } else { tryCSV(); }
-    })
-    .catch(function(){ tryCSV(); });
-}
-
-function tryCSV(){
-  // Método 2: CSV via allorigins proxy
-  fetch('https://api.allorigins.win/get?url='+encodeURIComponent(CSV_PUB)+'&t='+Date.now())
-    .then(function(r){return r.json();})
-    .then(function(j){
-      if(j&&j.contents){
-        var rows=parseCSV(j.contents);
-        if(rows.length){db=rows.map(mapRow);onDataLoaded();return;}
-      }
-      tryCSV2();
-    })
-    .catch(function(){tryCSV2();});
-}
-
-function tryCSV2(){
-  // Método 3: corsproxy.io
-  fetch('https://corsproxy.io/?'+encodeURIComponent(CSV_PUB))
-    .then(function(r){return r.text();})
-    .then(function(text){
-      var rows=parseCSV(text);
-      if(rows.length){db=rows.map(mapRow);onDataLoaded();}
-      else{onLoadError();}
-    })
-    .catch(function(){onLoadError();});
+      } else { onLoadError(); }
+    } catch(e){ onLoadError(); }
+  };
+  var s=document.createElement('script');
+  s.id='jsonp_load';
+  s.src=SHEET_SCRIPT+'?callback=_kwLoad&t='+Date.now();
+  s.onerror=function(){clearTimeout(timeout);onLoadError();};
+  document.body.appendChild(s);
 }
 
 function onDataLoaded(){
